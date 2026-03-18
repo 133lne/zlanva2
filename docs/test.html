@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2000小时倒计时</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(135deg, #0d0f2f, #1a1a4f);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    .title { font-size: 34px; color: #00e5ff; }
+    .countdown { display: flex; gap: 20px; }
+    .time-box {
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 28px 22px;
+      min-width: 110px;
+      text-align: center;
+    }
+    .time-number { font-size: 44px; font-weight: 200; }
+    .time-label { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 6px; }
+    .buttons { display: flex; gap: 16px; }
+    button {
+      padding: 14px 30px;
+      font-size: 17px;
+      border: none;
+      border-radius: 50px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    #start { background: linear-gradient(135deg, #00e5ff, #0099ff); color: #000; }
+    #pause { background: linear-gradient(135deg, #ffb700, #ff7700); color: #fff; }
+    #reset { background: linear-gradient(135deg, #ff5252, #d32f2f); color: #fff; }
+    .badges { font-size: 28px; }
+  </style>
+</head>
+<body>
+  <div class="title">2000 HOURS</div>
+  <div class="countdown">
+    <div class="time-box">
+      <div class="time-number" id="h">2000</div>
+      <div class="time-label">Hours</div>
+    </div>
+    <div class="time-box">
+      <div class="time-number" id="m">00</div>
+      <div class="time-label">Minutes</div>
+    </div>
+    <div class="time-box">
+      <div class="time-number" id="s">00</div>
+      <div class="time-label">Seconds</div>
+    </div>
+  </div>
+  <div class="badges" id="badges"></div>
+  <div class="buttons">
+    <button id="start">START</button>
+    <button id="pause">PAUSE</button>
+    <button id="reset">RESET</button>
+  </div>
+  <script>
+    // 初始化变量，优先从本地存储加载上次进度
+    let totalSeconds = 2000 * 3600;
+    let timer = null;
+    let isRunning = false;
+    const STORAGE_KEY = "countdown_2000h_progress"; // 本地存储的键名
+
+    // 从本地存储加载进度
+    function loadProgress() {
+      try {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          const { remainingSeconds, wasRunning } = JSON.parse(savedData);
+          // 验证数据有效性
+          if (typeof remainingSeconds === 'number' && remainingSeconds >= 0) {
+            totalSeconds = remainingSeconds;
+            // 如果上次是运行状态，恢复运行
+            if (wasRunning && totalSeconds > 0) {
+              isRunning = false; // 先重置状态，避免start函数判断失效
+              start(); // 自动继续倒计时
+            }
+            console.log("✅ 已恢复上次进度：剩余", totalSeconds, "秒");
+          }
+        }
+      } catch (e) {
+        console.log("⚠️ 加载进度失败，使用默认值：", e);
+      }
+    }
+
+    // 保存进度到本地存储（每次倒计时更新/暂停/重置时调用）
+    function saveProgress() {
+      try {
+        const progressData = {
+          remainingSeconds: totalSeconds,
+          wasRunning: isRunning // 保存运行状态
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
+      } catch (e) {
+        console.log("⚠️ 保存进度失败：", e);
+      }
+    }
+
+    function updateDisplay() {
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      document.getElementById("h").textContent = String(h).padStart(3, "0");
+      document.getElementById("m").textContent = String(m).padStart(2, "0");
+      document.getElementById("s").textContent = String(s).padStart(2, "0");
+      
+      const passed = (2000 * 3600 - totalSeconds) / 3600;
+      let badges = "";
+      badges += "⭐".repeat(Math.floor(passed / 7));
+      badges += "🗡️".repeat(Math.floor(passed / 100));
+      badges += "✡️".repeat(Math.floor(passed / 1000));
+      if (passed >= 2000) badges += "🌕";
+      document.getElementById("badges").textContent = badges;
+      
+      // 更新显示后立即保存进度
+      saveProgress();
+    }
+
+    function start() {
+      if (isRunning) return;
+      isRunning = true;
+      timer = setInterval(() => {
+        if (totalSeconds > 0) totalSeconds--;
+        updateDisplay();
+        if (totalSeconds <= 0) { 
+          clearInterval(timer); 
+          isRunning = false; 
+          saveProgress(); // 完成后保存最终状态
+          alert("🎉 2000小时目标完成！"); 
+        }
+      }, 1000);
+      // 启动时保存状态
+      saveProgress();
+    }
+
+    function pause() {
+      clearInterval(timer);
+      isRunning = false;
+      saveProgress(); // 暂停时保存状态
+    }
+
+    function reset() {
+      pause();
+      totalSeconds = 2000 * 3600;
+      updateDisplay(); // 会自动调用saveProgress
+    }
+
+    // 页面加载时先恢复进度，再更新显示
+    loadProgress();
+    updateDisplay();
+
+    document.getElementById("start").onclick = start;
+    document.getElementById("pause").onclick = pause;
+    document.getElementById("reset").onclick = reset;
+
+    // 监听页面关闭/刷新事件，确保最后状态被保存
+    window.addEventListener("beforeunload", saveProgress);
+  </script>
+</body>
+</html>
